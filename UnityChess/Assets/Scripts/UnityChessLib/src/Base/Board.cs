@@ -12,13 +12,19 @@ namespace UnityChess {
 
 		public Piece this[Square position] {
 			get {
-				if (position.IsValid()) return boardMatrix[position.File - 1, position.Rank - 1];
-				throw new ArgumentOutOfRangeException($"Position was out of range: {position}");
+				if (IsValidSquare(position))
+					return boardMatrix[position.File - 1, position.Rank - 1];
+
+				// Throw or log standard error
+				Console.WriteLine($"[Warning] Attempted to access invalid board position: {position}");
+				return null;
 			}
 
 			set {
-				if (position.IsValid()) boardMatrix[position.File - 1, position.Rank - 1] = value;
-				else throw new ArgumentOutOfRangeException($"Position was out of range: {position}");
+				if (IsValidSquare(position))
+					boardMatrix[position.File - 1, position.Rank - 1] = value;
+				else
+					Console.WriteLine($"[Warning] Attempted to write to invalid board position: {position}");
 			}
 		}
 
@@ -27,26 +33,21 @@ namespace UnityChess {
 			set => this[new Square(file, rank)] = value;
 		}
 
-		/// <summary>Creates a Board given the passed square-piece pairs.</summary>
 		public Board(params (Square, Piece)[] squarePiecePairs) {
 			boardMatrix = new Piece[8, 8];
-			
+
 			foreach ((Square position, Piece piece) in squarePiecePairs) {
-				this[position] = piece;
+				if (IsValidSquare(position))
+					this[position] = piece;
 			}
 		}
 
-		/// <summary>Creates a deep copy of the passed Board.</summary>
 		public Board(Board board) {
-			// TODO optimize this method
-			// Creates deep copy (makes copy of each piece and deep copy of their respective ValidMoves lists) of board (list of BasePiece's)
-			// this may be a memory hog since each Board has a list of Piece's, and each piece has a list of Movement's
-			// avg number turns/Board's per game should be around ~80. usual max number of pieces per board is 32
 			boardMatrix = new Piece[8, 8];
 			for (int file = 1; file <= 8; file++) {
 				for (int rank = 1; rank <= 8; rank++) {
 					Piece pieceToCopy = board[file, rank];
-					if (pieceToCopy == null) { continue; }
+					if (pieceToCopy == null) continue;
 
 					this[file, rank] = pieceToCopy.DeepCopy();
 				}
@@ -73,7 +74,7 @@ namespace UnityChess {
 			(new Square("f1"), new Bishop(Side.White)),
 			(new Square("g1"), new Knight(Side.White)),
 			(new Square("h1"), new Rook(Side.White)),
-			
+
 			(new Square("a2"), new Pawn(Side.White)),
 			(new Square("b2"), new Pawn(Side.White)),
 			(new Square("c2"), new Pawn(Side.White)),
@@ -82,7 +83,7 @@ namespace UnityChess {
 			(new Square("f2"), new Pawn(Side.White)),
 			(new Square("g2"), new Pawn(Side.White)),
 			(new Square("h2"), new Pawn(Side.White)),
-			
+
 			(new Square("a8"), new Rook(Side.Black)),
 			(new Square("b8"), new Knight(Side.Black)),
 			(new Square("c8"), new Bishop(Side.Black)),
@@ -91,7 +92,7 @@ namespace UnityChess {
 			(new Square("f8"), new Bishop(Side.Black)),
 			(new Square("g8"), new Knight(Side.Black)),
 			(new Square("h8"), new Rook(Side.Black)),
-			
+
 			(new Square("a7"), new Pawn(Side.Black)),
 			(new Square("b7"), new Pawn(Side.Black)),
 			(new Square("c7"), new Pawn(Side.Black)),
@@ -103,8 +104,14 @@ namespace UnityChess {
 		};
 
 		public void MovePiece(Movement move) {
+			if (!IsValidSquare(move.Start) || !IsValidSquare(move.End)) {
+				Console.WriteLine($"[Warning] Move skipped: invalid square ({move.Start} → {move.End})");
+				return;
+			}
+
 			if (this[move.Start] is not { } pieceToMove) {
-				throw new ArgumentException($"No piece was found at the given position: {move.Start}");
+				Console.WriteLine($"[Warning] No piece found at {move.Start} to move.");
+				return;
 			}
 
 			this[move.Start] = null;
@@ -116,10 +123,11 @@ namespace UnityChess {
 
 			(move as SpecialMove)?.HandleAssociatedPiece(this);
 		}
-		
-		internal bool IsOccupiedAt(Square position) => this[position] != null;
 
-		internal bool IsOccupiedBySideAt(Square position, Side side) => this[position] is Piece piece && piece.Owner == side;
+		internal bool IsOccupiedAt(Square position) => IsValidSquare(position) && this[position] != null;
+
+		internal bool IsOccupiedBySideAt(Square position, Side side) =>
+			IsValidSquare(position) && this[position] is Piece piece && piece.Owner == side;
 
 		public Square GetKingSquare(Side player) {
 			if (currentKingSquareBySide[player] == null) {
@@ -137,22 +145,22 @@ namespace UnityChess {
 
 		public string ToTextArt() {
 			string result = string.Empty;
-			
+
 			for (int rank = 8; rank >= 1; --rank) {
 				for (int file = 1; file <= 8; ++file) {
 					Piece piece = this[file, rank];
 					result += piece.ToTextArt();
-					result += file != 8
-						? "|"
-						: $"\t {rank}";
+					result += file != 8 ? "|" : $"\t {rank}";
 				}
-
 				result += "\n";
 			}
-			
-			result += "a b c d e f g h";
 
+			result += "a b c d e f g h";
 			return result;
-		} 
+		}
+
+		private bool IsValidSquare(Square square) {
+			return square.File >= 1 && square.File <= 8 && square.Rank >= 1 && square.Rank <= 8;
+		}
 	}
 }

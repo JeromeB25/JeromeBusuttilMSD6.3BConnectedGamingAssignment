@@ -1,54 +1,76 @@
-﻿namespace UnityChess {
-	/// <summary>Representation of a square on a chessboard.</summary>
-	public readonly struct Square {
-		public static readonly Square Invalid = new Square(-1, -1);
-		public readonly int File;
-		public readonly int Rank;
+﻿namespace UnityChess
+{
+    /// <summary>
+    /// Representation of a square on a chessboard.
+    /// </summary>
+    public readonly struct Square
+    {
+        public static readonly Square Invalid = new Square(-1, -1);
 
-		/// <summary>Creates a new Square instance.</summary>
-		/// <param name="file">Column of the square.</param>
-		/// <param name="rank">Row of the square.</param>
-		public Square(int file, int rank) {
-			File = file;
-			Rank = rank;
-		}
+        public readonly int File;
+        public readonly int Rank;
 
-		public Square(string squareString) {
-			this = string.IsNullOrEmpty(squareString)
-				? Invalid
-				: SquareUtil.StringToSquare(squareString);
-		}
+        /// <summary>
+        /// Creates a new Square instance with specified file and rank.
+        /// </summary>
+        public Square(int file, int rank)
+        {
+            File = file;
+            Rank = rank;
+        }
 
-		internal Square(Square startPosition, int fileOffset, int rankOffset) {
-			File = startPosition.File + fileOffset;
-			Rank = startPosition.Rank + rankOffset;
-		}
-		
-		internal readonly bool IsValid() {
-			return File is >= 1 and <= 8
-			       && Rank is >= 1 and <= 8;
-		}
+        /// <summary>
+        /// Creates a new Square instance from a string like "e4".
+        /// </summary>
+        public Square(string squareString)
+        {
+            this = string.IsNullOrEmpty(squareString)
+                ? Invalid
+                : SquareUtil.StringToSquare(squareString);
+        }
 
-		public static bool operator ==(Square lhs, Square rhs) => lhs.File == rhs.File && lhs.Rank == rhs.Rank;
-		public static bool operator !=(Square lhs, Square rhs) => !(lhs == rhs);
-		public static Square operator +(Square lhs, Square rhs) => new Square(lhs.File + rhs.File, lhs.Rank + rhs.Rank);
-		
-		public bool Equals(Square other) => File == other.File && Rank == other.Rank;
+        /// <summary>
+        /// Creates a square offset from another square.
+        /// </summary>
+        internal Square(Square start, int fileOffset, int rankOffset)
+        {
+            File = start.File + fileOffset;
+            Rank = start.Rank + rankOffset;
+        }
 
-		public bool Equals(int file, int rank) => File == file && Rank == rank;
+        /// <summary>
+        /// Returns true if the square is on the board (1-8, 1-8).
+        /// </summary>
+        public bool IsValid()
+        {
+            return File is >= 1 and <= 8 && Rank is >= 1 and <= 8;
+        }
 
-		public override bool Equals(object obj) {
-			if (ReferenceEquals(null, obj)) return false;
+        public override string ToString()
+        {
+            return SquareUtil.SquareToString(this);
+        }
 
-			return obj is Square other && Equals(other);
-		}
+        public bool Equals(Square other)
+        {
+            return File == other.File && Rank == other.Rank;
+        }
 
-		public override int GetHashCode() {
-			unchecked {
-				return (File * 397) ^ Rank;
-			}
-		}
+        public override bool Equals(object obj)
+        {
+            return obj is Square other && Equals(other);
+        }
 
-		public override string ToString() => SquareUtil.SquareToString(this);
-	}
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (File * 397) ^ Rank;
+            }
+        }
+
+        public static bool operator ==(Square lhs, Square rhs) => lhs.File == rhs.File && lhs.Rank == rhs.Rank;
+        public static bool operator !=(Square lhs, Square rhs) => !(lhs == rhs);
+        public static Square operator +(Square lhs, Square rhs) => new Square(lhs.File + rhs.File, lhs.Rank + rhs.Rank);
+    }
 }
