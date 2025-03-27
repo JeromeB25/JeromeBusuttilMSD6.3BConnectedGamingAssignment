@@ -205,7 +205,7 @@ public class ChessMoveRelay : NetworkBehaviour
             GameObject pieceGO = BoardManager.Instance.GetPieceGOAtPosition(startSquare);
             if (pieceGO == null)
             {
-                Debug.LogError($"Failed to find piece at {startSquare} for remote move");
+                //Debug.Log($"Failed to find piece at {startSquare} for remote move");
                 return;
             }
 
@@ -213,7 +213,7 @@ public class ChessMoveRelay : NetworkBehaviour
             GameObject squareGO = BoardManager.Instance.GetSquareGOByPosition(endSquare);
             if (squareGO == null)
             {
-                Debug.LogError($"Failed to find square at {endSquare} for remote move");
+                //Debug.Log($"Failed to find square at {endSquare} for remote move");
                 return;
             }
 
