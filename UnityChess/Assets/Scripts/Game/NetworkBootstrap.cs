@@ -1,10 +1,12 @@
 using UnityEngine;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
+using Firebase;
+using Firebase.Extensions;
 
 /// <summary>
-/// Bootstraps the networking components for the chess game.
-/// This script ensures all required network components are properly initialized.
+/// Bootstraps the networking and Firebase components for the chess game.
+/// Ensures all required systems are properly initialized on startup.
 /// </summary>
 public class NetworkBootstrap : MonoBehaviour
 {
@@ -18,7 +20,7 @@ public class NetworkBootstrap : MonoBehaviour
     [Header("Network Configuration")]
     [SerializeField] private ushort port = 7777;
     [SerializeField] private GameObject chessNetworkManagerPrefab;
-    
+
     private void Awake()
     {
         // Singleton pattern
@@ -35,59 +37,89 @@ public class NetworkBootstrap : MonoBehaviour
     private void Start()
     {
         InitializeNetworking();
+        InitializeFirebase(); // ✅ Firebase setup here
     }
 
     /// <summary>
-    /// Initialize all required networking components
+    /// Initialize networking components like NetworkManager, ChessNetworkManager, and GameStateSerializer.
     /// </summary>
     public void InitializeNetworking()
     {
-        // Check if we already have NetworkManager
+        // Ensure NetworkManager exists
         if (NetworkManager.Singleton == null)
         {
-            Debug.Log("Creating NetworkManager");
+            Debug.Log("[NetworkBootstrap] Creating NetworkManager");
             
-            // Create NetworkManager
             GameObject networkManagerObj = new GameObject("NetworkManager");
             NetworkManager networkManager = networkManagerObj.AddComponent<NetworkManager>();
-            
-            // Add UnityTransport
+
             UnityTransport transport = networkManagerObj.AddComponent<UnityTransport>();
             transport.ConnectionData.Port = port;
-            
+
             DontDestroyOnLoad(networkManagerObj);
         }
         else
         {
-            Debug.Log("NetworkManager already exists");
+            Debug.Log("[NetworkBootstrap] NetworkManager already exists");
         }
 
-        // Check if we have ChessNetworkManager
+        // Ensure ChessNetworkManager exists
         if (ChessNetworkManager.Instance == null)
         {
-            Debug.Log("Creating ChessNetworkManager");
-            
+            Debug.Log("[NetworkBootstrap] Creating ChessNetworkManager");
+
             if (chessNetworkManagerPrefab != null)
             {
-                // Instantiate from prefab if available
                 Instantiate(chessNetworkManagerPrefab);
             }
             else
             {
-                // Create a new GameObject with required components
                 GameObject chessNetManagerObj = new GameObject("ChessNetworkManager");
-                ChessNetworkManager chessNetManager = chessNetManagerObj.AddComponent<ChessNetworkManager>();
-                NetworkObject netObj = chessNetManagerObj.AddComponent<NetworkObject>();
-                
+                chessNetManagerObj.AddComponent<ChessNetworkManager>();
+                chessNetManagerObj.AddComponent<NetworkObject>();
+
                 DontDestroyOnLoad(chessNetManagerObj);
             }
         }
         else
         {
-            Debug.Log("ChessNetworkManager already exists");
+            Debug.Log("[NetworkBootstrap] ChessNetworkManager already exists");
         }
 
-        // Notify that network initialization is complete
+        // Ensure GameStateSerializer exists
+        if (GameStateSerializer.Instance == null)
+        {
+            Debug.Log("[NetworkBootstrap] Creating GameStateSerializer");
+
+            GameObject serializerObj = new GameObject("GameStateSerializer");
+            serializerObj.AddComponent<GameStateSerializer>();
+
+            DontDestroyOnLoad(serializerObj);
+        }
+        else
+        {
+            Debug.Log("[NetworkBootstrap] GameStateSerializer already exists");
+        }
+
         OnNetworkInitialized?.Invoke();
+    }
+
+    /// <summary>
+    /// Initializes Firebase and checks dependencies.
+    /// </summary>
+    private void InitializeFirebase()
+    {
+        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+        {
+            var status = task.Result;
+            if (status == DependencyStatus.Available)
+            {
+                Debug.Log("[Firebase] Initialized successfully.");
+            }
+            else
+            {
+                Debug.LogError($"[Firebase] Initialization failed: {status}");
+            }
+        });
     }
 }

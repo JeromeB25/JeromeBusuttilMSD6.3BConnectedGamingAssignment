@@ -18,6 +18,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 	public static event Action GameResetToHalfMoveEvent;
 	public static event Action MoveExecutedEvent;
 
+	private string currentMatchId;
+
 	/// <summary>
 	/// Gets the current board state from the game.
 	/// </summary>
@@ -144,6 +146,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 	/// </summary>
 	public async void StartNewGame()
 	{
+		currentMatchId = System.Guid.NewGuid().ToString();
+    	AnalyticsLogger.LogMatchStart(currentMatchId);
+
 		game = new Game();
 		NewGameStartedEvent?.Invoke();
 	}
@@ -206,6 +211,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 		{
 			BoardManager.Instance.SetActiveAllPieces(false);
 			GameEndedEvent?.Invoke();
+
+			// ✅ REUSE the existing 'latestHalfMove', no need to declare again
+			string result = latestHalfMove.CausedCheckmate ? $"{latestHalfMove.Piece.Owner} Wins" : "Draw";
+			AnalyticsLogger.LogMatchEnd(currentMatchId, result);
 		}
 		else
 		{
@@ -218,6 +227,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
 		return true;
 	}
+
 
 	/// <summary>
 	/// Handles special move behaviour asynchronously (castling, en passant, and promotion).

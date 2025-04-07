@@ -137,6 +137,34 @@ public class ChessMoveRelay : NetworkBehaviour
         RelayValidatedMoveClientRpc(startFile, startRank, endFile, endRank, NetworkManager.Singleton.LocalClientId);
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    public void SendProfileUpdateServerRpc(string profileId, ServerRpcParams rpcParams = default)
+    {
+        // Get the client ID that sent this request
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        
+        // Forward to all clients
+        PropagateProfileUpdateClientRpc(clientId, profileId);
+        
+        Debug.Log($"Server: Client {clientId} changed profile to {profileId}");
+    }
+
+    [ClientRpc]
+    public void PropagateProfileUpdateClientRpc(ulong clientId, string profileId)
+    {
+        // Skip if we're the sender
+        if (clientId == NetworkManager.Singleton.LocalClientId)
+            return;
+        
+        Debug.Log($"Client: received profile update for client {clientId}, profile {profileId}");
+        
+        // Forward to DLC manager
+        if (DLCManager.Instance != null)
+        {
+            DLCManager.Instance.HandleRemoteProfileUpdate(profileId);
+        }
+    }
+
     /// <summary>
     /// Broadcasts a validated move from server to all clients
     /// </summary>

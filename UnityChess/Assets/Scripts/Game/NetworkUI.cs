@@ -24,6 +24,9 @@ public class NetworkUI : MonoBehaviour
     // Store the last IP used for rejoin functionality
     private string lastIpAddress = "127.0.0.1";
     
+    // Flag to indicate if we're in a rejoin process
+    private bool isRejoining = false;
+    
     void Awake()
     {
         // Find all necessary UI components by name
@@ -40,6 +43,18 @@ public class NetworkUI : MonoBehaviour
         
         // Subscribe to ChessNetworkManager events when it becomes available
         StartCoroutine(WaitForNetworkManager());
+        
+        // Check if there's a saved IP address
+        if (GameStateSerializer.Instance != null)
+        {
+            lastIpAddress = GameStateSerializer.Instance.GetSavedIPAddress();
+            
+            // Update IP input field with saved value
+            if (ipAddressInput != null)
+            {
+                ipAddressInput.text = lastIpAddress;
+            }
+        }
     }
 
     private void FindUIComponents()
@@ -150,7 +165,11 @@ public class NetworkUI : MonoBehaviour
             leaveButton.interactable = false;
         
         if (rejoinButton != null)
-            rejoinButton.interactable = false;
+        {
+            // Check if there's a saved game state, enable rejoin if available
+            bool hasSavedGame = GameStateSerializer.Instance != null && GameStateSerializer.Instance.HasSavedGameState();
+            rejoinButton.interactable = hasSavedGame;
+        }
         
         // Set status text
         if (statusText != null)
@@ -162,7 +181,7 @@ public class NetworkUI : MonoBehaviour
         // Make sure ipAddressInput has a default value
         if (ipAddressInput != null && string.IsNullOrEmpty(ipAddressInput.text))
         {
-            ipAddressInput.text = "127.0.0.1";
+            ipAddressInput.text = lastIpAddress;
         }
     }
 
@@ -177,6 +196,10 @@ public class NetworkUI : MonoBehaviour
         // Subscribe to events once the manager is available
         ChessNetworkManager.OnConnectionStatusChanged += OnConnectionStatusChanged;
         
+        // Also subscribe to game events
+        GameManager.GameEndedEvent += OnGameEnded;
+        GameManager.NewGameStartedEvent += OnNewGameStarted;
+        
         Debug.Log("Successfully connected to ChessNetworkManager!");
     }
 
@@ -187,6 +210,10 @@ public class NetworkUI : MonoBehaviour
         {
             ChessNetworkManager.OnConnectionStatusChanged -= OnConnectionStatusChanged;
         }
+        
+        // Unsubscribe from game events
+        GameManager.GameEndedEvent -= OnGameEnded;
+        GameManager.NewGameStartedEvent -= OnNewGameStarted;
     }
 
     private void OnHostButtonClicked()
@@ -201,6 +228,12 @@ public class NetworkUI : MonoBehaviour
             
             // Update UI
             UpdateButtonState(true);
+            
+            // Clear any previously saved game state since we're starting a new game
+            if (GameStateSerializer.Instance != null)
+            {
+                GameStateSerializer.Instance.ClearSavedGameState();
+            }
         }
         else
         {
@@ -225,6 +258,12 @@ public class NetworkUI : MonoBehaviour
             // Save the IP for rejoin functionality
             lastIpAddress = ipAddress;
             
+            // Save IP in GameStateSerializer
+            if (GameStateSerializer.Instance != null)
+            {
+                GameStateSerializer.Instance.SaveIPAddress(ipAddress);
+            }
+            
             if (statusText != null)
                 statusText.text = $"Connecting to {ipAddress}...";
             
@@ -233,6 +272,12 @@ public class NetworkUI : MonoBehaviour
             
             // Update UI
             UpdateButtonState(true);
+            
+            // Clear any previously saved game state since we're starting a new game
+            if (GameStateSerializer.Instance != null && !isRejoining)
+            {
+                GameStateSerializer.Instance.ClearSavedGameState();
+            }
         }
         else
         {
@@ -247,6 +292,13 @@ public class NetworkUI : MonoBehaviour
         if (ChessNetworkManager.Instance != null)
         {
             Debug.Log("Leave button clicked - leaving game");
+            
+            // Save the game state before leaving
+            if (GameStateSerializer.Instance != null && NetworkManager.Singleton.IsConnectedClient)
+            {
+                GameStateSerializer.Instance.SaveGameState();
+            }
+            
             ChessNetworkManager.Instance.LeaveGame();
             
             if (statusText != null)
@@ -264,6 +316,14 @@ public class NetworkUI : MonoBehaviour
     {
         if (ChessNetworkManager.Instance != null)
         {
+            isRejoining = true;
+            
+            // Get the saved IP address
+            if (GameStateSerializer.Instance != null)
+            {
+                lastIpAddress = GameStateSerializer.Instance.GetSavedIPAddress();
+            }
+            
             if (statusText != null)
                 statusText.text = $"Reconnecting to {lastIpAddress}...";
             
@@ -302,14 +362,71 @@ public class NetworkUI : MonoBehaviour
             if (hostButton != null) hostButton.interactable = true;
             if (clientButton != null) clientButton.interactable = true;
             if (leaveButton != null) leaveButton.interactable = false;
+            isRejoining = false;
         }
+        
+        // If connection succeeded and we're rejoining, restore the saved game state
+        if (state == ChessNetworkManager.NetworkConnectionState.Connected && isRejoining && 
+            GameStateSerializer.Instance != null && GameStateSerializer.Instance.HasSavedGameState())
+        {
+            // Wait a brief moment for the connection to fully establish
+            StartCoroutine(RestoreGameStateAfterDelay(0.5f));
+        }
+    }
+    
+    private IEnumerator RestoreGameStateAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        
+        Debug.Log("Attempting to restore saved game state after rejoin");
+        
+        // First, restore the player's side
+        Side savedSide = GameStateSerializer.Instance.GetSavedPlayerSide();
+        if (savedSide != Side.None)
+        {
+            // Make sure we've been assigned the correct side on rejoin
+            Side currentSide = ChessNetworkManager.Instance.GetPlayerSide(NetworkManager.Singleton.LocalClientId);
+            if (currentSide != savedSide)
+            {
+                Debug.LogWarning($"Player rejoined with different side: Was {savedSide}, now {currentSide}");
+            }
+        }
+        
+        // Restore the game state itself
+        GameStateSerializer.Instance.RestoreSavedGameState();
+        
+        // Notify the server that we've restored our game state
+        if (ChessNetworkManager.Instance.GetComponent<NetworkObject>().IsSpawned)
+        {
+            // Only call the RPC if we've added it to the ChessNetworkManager
+            try
+            {
+                // Try to get the AddGameStateRestoredNotification method through reflection
+                System.Reflection.MethodInfo method = ChessNetworkManager.Instance.GetType().GetMethod("NotifyGameStateRestoredServerRpc");
+                if (method != null)
+                {
+                    method.Invoke(ChessNetworkManager.Instance, null);
+                    Debug.Log("Notified server about game state restoration");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Couldn't notify server about game state restoration: {e.Message}");
+            }
+        }
+        
+        // Reset the rejoining flag
+        isRejoining = false;
+
+        RestoreGameStateFromFirebase();
+
     }
 
     private void UpdateSideDisplay()
     {
         if (ChessNetworkManager.Instance != null && playerSideText != null)
         {
-            Side playerSide = ChessNetworkManager.Instance.GetLocalPlayerSide();
+            Side playerSide = ChessNetworkManager.Instance.GetPlayerSide(NetworkManager.Singleton.LocalClientId);
             if (playerSide != Side.None)
             {
                 playerSideText.text = $"Playing as: {playerSide}";
@@ -337,5 +454,34 @@ public class NetworkUI : MonoBehaviour
         }
         
         Debug.Log($"Updated button states. Connected: {isConnected}");
+    }
+    
+    private void OnGameEnded()
+    {
+        // Clear saved game when a game ends naturally
+        if (GameStateSerializer.Instance != null)
+        {
+            GameStateSerializer.Instance.ClearSavedGameState();
+        }
+    }
+    
+    private void OnNewGameStarted()
+    {
+        // Clear saved game when a new game starts
+        if (GameStateSerializer.Instance != null && !isRejoining)
+        {
+            GameStateSerializer.Instance.ClearSavedGameState();
+        }
+    }
+
+    private async void RestoreGameStateFromFirebase()
+    {
+        string userId = SystemInfo.deviceUniqueIdentifier;
+        string state = await GameStateSaver.Instance.LoadMostRecentGameState(userId);
+        if (!string.IsNullOrEmpty(state))
+        {
+            GameManager.Instance.LoadGame(state);
+            Debug.Log("[GameState] Restored game from Firebase.");
+        }
     }
 }

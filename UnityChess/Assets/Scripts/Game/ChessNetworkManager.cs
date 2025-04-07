@@ -419,4 +419,51 @@ public class ChessNetworkManager : NetworkBehaviour
             UpdatePieceControl();
         }
     }
+
+    /// <summary>
+    /// Notifies clients to restore their game state after a player rejoins
+    /// </summary>
+    [ServerRpc(RequireOwnership = false)]
+    public void NotifyGameStateRestoredServerRpc(ServerRpcParams rpcParams = default)
+    {
+        // Get the client ID that initiated this call
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        
+        Debug.Log($"Client {clientId} has restored game state - notifying other clients");
+        
+        // Notify all clients that a game state has been restored
+        GameStateRestoredClientRpc(clientId);
+    }
+
+    /// <summary>
+    /// Notifies all clients that a game state has been restored
+    /// </summary>
+    [ClientRpc]
+    public void GameStateRestoredClientRpc(ulong clientId)
+    {
+        Debug.Log($"Received notification that client {clientId} has restored game state");
+        
+        // Skip if we're the client that sent the notification
+        if (NetworkManager.Singleton.LocalClientId == clientId)
+            return;
+        
+        // If we're not the host, make sure we sync to the current game state
+        if (!IsHost)
+        {
+            // Update piece controls for our side
+            UpdatePieceControl();
+        }
+    }
+
+    /// <summary>
+    /// Manually initializes piece sides after state restoration
+    /// </summary>
+    public void InitializeLocalPlayerSide(Side side)
+    {
+        if (side != Side.None)
+        {
+            playerSides[NetworkManager.Singleton.LocalClientId] = side;
+            Debug.Log($"Initialized local player side to {side} after rejoin");
+        }
+    }
 }

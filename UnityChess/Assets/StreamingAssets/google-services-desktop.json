@@ -1,0 +1,31 @@
+{
+  "project_info": {
+    "project_number": "213238760488",
+    "project_id": "jeromecgdlc",
+    "storage_bucket": "jeromecgdlc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:213238760488:ios:01a85b306e57597507a11d",
+        "android_client_info": {
+          "package_name": "unity.DefaultCompany.UnityChess"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGAT176OdO-i0HWNPztZNyIsCJ5K__DWI"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 0
+        },
+        "appinvite_service": {
+          "status": 1
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
