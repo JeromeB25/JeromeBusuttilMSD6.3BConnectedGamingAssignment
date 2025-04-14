@@ -37,7 +37,7 @@ public class NetworkBootstrap : MonoBehaviour
     private void Start()
     {
         InitializeNetworking();
-        InitializeFirebase(); // ✅ Firebase setup here
+        InitializeFirebase(); // Firebase setup 
     }
 
     /// <summary>

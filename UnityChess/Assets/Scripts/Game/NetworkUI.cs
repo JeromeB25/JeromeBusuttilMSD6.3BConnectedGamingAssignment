@@ -7,11 +7,11 @@ using System.Collections;
 
 /// <summary>
 /// Simple UI manager that provides basic buttons for networking functionality:
-/// Host, Client, Leave, and Rejoin. This version automatically finds UI elements by name.
+/// Host, Client, Leave, and Rejoin
 /// </summary>
 public class NetworkUI : MonoBehaviour
 {
-    // UI Components - these will be found automatically
+    // UI Components
     private Button hostButton;
     private Button clientButton;
     private Button leaveButton;
@@ -369,7 +369,7 @@ public class NetworkUI : MonoBehaviour
         if (state == ChessNetworkManager.NetworkConnectionState.Connected && isRejoining && 
             GameStateSerializer.Instance != null && GameStateSerializer.Instance.HasSavedGameState())
         {
-            // Wait a brief moment for the connection to fully establish
+            // Wait for the connection to fully establish
             StartCoroutine(RestoreGameStateAfterDelay(0.5f));
         }
     }
